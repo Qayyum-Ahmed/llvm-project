@@ -2472,13 +2472,17 @@ bool Sema::CheckTemplateParameterList(TemplateParameterList *NewParams,
         NewDefaultLoc = NewTypeParm->getDefaultArgumentLoc();
         SawDefaultArgument = true;
 
-        if (!OldTypeParm->getOwningModule())
-          RedundantDefaultArg = true;
-        else if (!getASTContext().isSameDefaultTemplateArgument(OldTypeParm,
+        if (Module *ImportedM = OldTypeParm->getImportedOwningModule()) {
+          if (!getASTContext().isSameDefaultTemplateArgument(OldTypeParm,
                                                                 NewTypeParm)) {
-          InconsistentDefaultArg = true;
-          PrevModuleName =
-              OldTypeParm->getImportedOwningModule()->getFullModuleName();
+            InconsistentDefaultArg = true;
+            PrevModuleName = ImportedM->getFullModuleName();
+          }
+        } else {
+          // Repeating a default argument for a template parameter in the same
+          // translation unit (including within a local named module or global
+          // module fragment) is always a redefinition.
+          RedundantDefaultArg = true;
         }
         PreviousDefaultArgLoc = NewDefaultLoc;
       } else if (OldTypeParm && OldTypeParm->hasDefaultArgument()) {
@@ -2527,13 +2531,17 @@ bool Sema::CheckTemplateParameterList(TemplateParameterList *NewParams,
         OldDefaultLoc = OldNonTypeParm->getDefaultArgumentLoc();
         NewDefaultLoc = NewNonTypeParm->getDefaultArgumentLoc();
         SawDefaultArgument = true;
-        if (!OldNonTypeParm->getOwningModule())
-          RedundantDefaultArg = true;
-        else if (!getASTContext().isSameDefaultTemplateArgument(
+        if (Module *ImportedM = OldNonTypeParm->getImportedOwningModule()) {
+          if (!getASTContext().isSameDefaultTemplateArgument(
                      OldNonTypeParm, NewNonTypeParm)) {
           InconsistentDefaultArg = true;
-          PrevModuleName =
-              OldNonTypeParm->getImportedOwningModule()->getFullModuleName();
+          PrevModuleName = ImportedM->getFullModuleName();
+          }
+        } else {
+          // Repeating a default argument for a template parameter in the same
+          // translation unit (including within a local named module or global
+          // module fragment) is always a redefinition.
+          RedundantDefaultArg = true;
         }
         PreviousDefaultArgLoc = NewDefaultLoc;
       } else if (OldNonTypeParm && OldNonTypeParm->hasDefaultArgument()) {
@@ -2578,13 +2586,17 @@ bool Sema::CheckTemplateParameterList(TemplateParameterList *NewParams,
         OldDefaultLoc = OldTemplateParm->getDefaultArgument().getLocation();
         NewDefaultLoc = NewTemplateParm->getDefaultArgument().getLocation();
         SawDefaultArgument = true;
-        if (!OldTemplateParm->getOwningModule())
-          RedundantDefaultArg = true;
-        else if (!getASTContext().isSameDefaultTemplateArgument(
+        if (Module *ImportedM = OldTemplateParm->getImportedOwningModule()) {
+          if (!getASTContext().isSameDefaultTemplateArgument(
                      OldTemplateParm, NewTemplateParm)) {
           InconsistentDefaultArg = true;
-          PrevModuleName =
-              OldTemplateParm->getImportedOwningModule()->getFullModuleName();
+          PrevModuleName = ImportedM->getFullModuleName();
+          }
+        } else {
+          // Repeating a default argument for a template parameter in the same
+          // translation unit (including within a local named module or global
+          // module fragment) is always a redefinition.
+          RedundantDefaultArg = true;
         }
         PreviousDefaultArgLoc = NewDefaultLoc;
       } else if (OldTemplateParm && OldTemplateParm->hasDefaultArgument()) {
@@ -8137,9 +8149,6 @@ static Expr *BuildExpressionFromNonTypeTemplateArgumentValue(
           S, ElemT, Val.getVectorElt(I), Loc));
     return MakeInitList(Elts);
   }
-
-  case APValue::Matrix:
-    llvm_unreachable("Matrix template argument expression not yet supported");
 
   case APValue::None:
   case APValue::Indeterminate:
