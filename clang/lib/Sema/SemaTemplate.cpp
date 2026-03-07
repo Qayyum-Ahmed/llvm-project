@@ -26,6 +26,7 @@
 #include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/PartialDiagnostic.h"
+#include "clang/Basic/Module.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Sema/DeclSpec.h"
@@ -2472,16 +2473,22 @@ bool Sema::CheckTemplateParameterList(TemplateParameterList *NewParams,
         NewDefaultLoc = NewTypeParm->getDefaultArgumentLoc();
         SawDefaultArgument = true;
 
+        bool SameDefault =
+            getASTContext().isSameDefaultTemplateArgument(OldTypeParm,
+                                                          NewTypeParm);
         if (Module *ImportedM = OldTypeParm->getImportedOwningModule()) {
-          if (!getASTContext().isSameDefaultTemplateArgument(OldTypeParm,
-                                                                NewTypeParm)) {
+          if (!SameDefault) {
             InconsistentDefaultArg = true;
             PrevModuleName = ImportedM->getFullModuleName();
           }
+        } else if (Module *LocalM = OldTypeParm->getLocalOwningModule()) {
+          if (LocalM->isModuleMapModule()) {
+            if (!SameDefault)
+              RedundantDefaultArg = true;
+          } else {
+            RedundantDefaultArg = true;
+          }
         } else {
-          // Repeating a default argument for a template parameter in the same
-          // translation unit (including within a local named module or global
-          // module fragment) is always a redefinition.
           RedundantDefaultArg = true;
         }
         PreviousDefaultArgLoc = NewDefaultLoc;
@@ -2531,16 +2538,21 @@ bool Sema::CheckTemplateParameterList(TemplateParameterList *NewParams,
         OldDefaultLoc = OldNonTypeParm->getDefaultArgumentLoc();
         NewDefaultLoc = NewNonTypeParm->getDefaultArgumentLoc();
         SawDefaultArgument = true;
+        bool SameDefault = getASTContext().isSameDefaultTemplateArgument(
+            OldNonTypeParm, NewNonTypeParm);
         if (Module *ImportedM = OldNonTypeParm->getImportedOwningModule()) {
-          if (!getASTContext().isSameDefaultTemplateArgument(
-                     OldNonTypeParm, NewNonTypeParm)) {
-          InconsistentDefaultArg = true;
-          PrevModuleName = ImportedM->getFullModuleName();
+          if (!SameDefault) {
+            InconsistentDefaultArg = true;
+            PrevModuleName = ImportedM->getFullModuleName();
+          }
+        } else if (Module *LocalM = OldNonTypeParm->getLocalOwningModule()) {
+          if (LocalM->isModuleMapModule()) {
+            if (!SameDefault)
+              RedundantDefaultArg = true;
+          } else {
+            RedundantDefaultArg = true;
           }
         } else {
-          // Repeating a default argument for a template parameter in the same
-          // translation unit (including within a local named module or global
-          // module fragment) is always a redefinition.
           RedundantDefaultArg = true;
         }
         PreviousDefaultArgLoc = NewDefaultLoc;
@@ -2586,16 +2598,21 @@ bool Sema::CheckTemplateParameterList(TemplateParameterList *NewParams,
         OldDefaultLoc = OldTemplateParm->getDefaultArgument().getLocation();
         NewDefaultLoc = NewTemplateParm->getDefaultArgument().getLocation();
         SawDefaultArgument = true;
+        bool SameDefault = getASTContext().isSameDefaultTemplateArgument(
+            OldTemplateParm, NewTemplateParm);
         if (Module *ImportedM = OldTemplateParm->getImportedOwningModule()) {
-          if (!getASTContext().isSameDefaultTemplateArgument(
-                     OldTemplateParm, NewTemplateParm)) {
-          InconsistentDefaultArg = true;
-          PrevModuleName = ImportedM->getFullModuleName();
+          if (!SameDefault) {
+            InconsistentDefaultArg = true;
+            PrevModuleName = ImportedM->getFullModuleName();
+          }
+        } else if (Module *LocalM = OldTemplateParm->getLocalOwningModule()) {
+          if (LocalM->isModuleMapModule()) {
+            if (!SameDefault)
+              RedundantDefaultArg = true;
+          } else {
+            RedundantDefaultArg = true;
           }
         } else {
-          // Repeating a default argument for a template parameter in the same
-          // translation unit (including within a local named module or global
-          // module fragment) is always a redefinition.
           RedundantDefaultArg = true;
         }
         PreviousDefaultArgLoc = NewDefaultLoc;
